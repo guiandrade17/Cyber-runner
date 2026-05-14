@@ -2,6 +2,7 @@
    CYBER RUNNER v2.0 — JAVASCRIPT COMPLETO
    Compatível com HTML e CSS fornecidos
    ============================================================ */
+console.log('JS CARREGOU');
 
 'use strict';
 
