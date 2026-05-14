@@ -679,7 +679,7 @@ const OBSTACLES = (() => {
 
   function reset() {
     list = [];
-    nextX = CONFIG.BASE_WIDTH + 200;
+    nextX = CONFIG.BASE_WIDTH + 700;
   }
 
   function getSpeed() {
@@ -977,7 +977,11 @@ const PHYSICS = (() => {
   }
 
   function checkCollisions() {
-    if (!STATE.running || STATE.paused || STATE.gameOver) return;
+
+  // Proteção inicial
+  if (STATE.frameCount < 60) return;
+
+  if (!STATE.running || STATE.paused || STATE.gameOver) return;
 
     const pHit = PLAYER.getHitbox();
 
