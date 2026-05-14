@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cyber Runner — Neon Escape v2.0</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="game-container">
+
+        <!-- Camadas Parallax de Fundo -->
+        <div class="parallax-layer layer-stars"    id="layer-stars"></div>
+        <div class="parallax-layer layer-bg"       id="layer-bg"></div>
+        <div class="parallax-layer layer-far"      id="layer-far"></div>
+        <div class="parallax-layer layer-mid"      id="layer-mid"></div>
+        <div class="parallax-layer layer-near"     id="layer-near"></div>
+        <div class="parallax-layer layer-rain"     id="layer-rain"></div>
+        <div class="parallax-layer layer-scanline" id="layer-scanline"></div>
+
+        <!-- HUD Principal -->
+        <div id="hud">
+            <div id="hud-left">
+                <div id="lives-display">
+                    <span class="hud-label">VIDAS</span>
+                    <div id="lives-icons"></div>
+                </div>
+                <div id="combo-display" class="hidden">
+                    <span id="combo-value">x1</span>
+                    <span class="hud-label">COMBO</span>
+                </div>
+            </div>
+            <div id="hud-center">
+                <div id="score-display">
+                    <span class="hud-label">SCORE</span>
+                    <span id="score-value">000000</span>
+                </div>
+                <div id="record-display">
+                    <span class="hud-label">RECORD</span>
+                    <span id="record-value">000000</span>
+                </div>
+            </div>
+            <div id="hud-right">
+                <div id="speed-display">
+                    <span class="hud-label">VEL</span>
+                    <span id="speed-value">1.0x</span>
+                </div>
+                <div id="powerup-display" class="hidden">
+                    <span id="powerup-icon">⚡</span>
+                    <div id="powerup-bar-container">
+                        <div id="powerup-bar"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Botão Mudo -->
+        <button id="mute-btn" title="Alternar Som">🔊</button>
+        <!-- Botão Pause -->
+        <button id="pause-btn" class="hidden" title="Pausar [P]">⏸</button>
+
+        <!-- ========== TELA INICIAL ========== -->
+        <div id="start-screen" class="overlay">
+            <div class="overlay-glitch-lines"></div>
+            <div class="overlay-content">
+                <div class="title-container">
+                    <h1 class="glitch-title" data-text="CYBER RUNNER">CYBER RUNNER</h1>
+                    <div class="title-sub">NEON ESCAPE v2.0</div>
+                </div>
+                <div class="menu-main">
+                    <div class="menu-record">
+                        <span class="hud-label">MELHOR SCORE</span>
+                        <span id="menu-best-score">000000</span>
+                    </div>
+                    <div class="difficulty-select">
+                        <span class="hud-label">DIFICULDADE</span>
+                        <div class="diff-buttons">
+                            <button class="diff-btn active" data-diff="easy">FÁCIL</button>
+                            <button class="diff-btn" data-diff="normal">NORMAL</button>
+                            <button class="diff-btn" data-diff="hard">DIFÍCIL</button>
+                        </div>
+                    </div>
+                    <div class="skin-select">
+                        <span class="hud-label">SKIN</span>
+                        <div class="skin-buttons">
+                            <button class="skin-btn active" data-skin="cyan" style="--c:#00f2ff">■</button>
+                            <button class="skin-btn" data-skin="pink" style="--c:#ff0055">■</button>
+                            <button class="skin-btn" data-skin="gold" style="--c:#ffd700">■</button>
+                            <button class="skin-btn" data-skin="green" style="--c:#00ff88">■</button>
+                        </div>
+                    </div>
+                    <button id="start-btn" class="action-btn">▶ INICIAR</button>
+                    <div class="controls-hint">
+                        <span>[ESPAÇO / ↑] PULAR</span>
+                        <span>[ESPAÇO x2] DOUBLE JUMP</span>
+                        <span>[SHIFT / ←] DASH</span>
+                        <span>[P] PAUSAR</span>
+                    </div>
+                </div>
+                <div id="achievements-panel">
+                    <span class="hud-label">CONQUISTAS</span>
+                    <div id="achievements-list"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ========== TELA DE PAUSE ========== -->
+        <div id="pause-screen" class="overlay hidden">
+            <div class="overlay-glitch-lines"></div>
+            <div class="overlay-content">
+                <h2 class="neon-heading">PAUSADO</h2>
+                <button id="resume-btn" class="action-btn">▶ CONTINUAR</button>
+                <button id="quit-btn" class="action-btn secondary">⏹ MENU</button>
+            </div>
+        </div>
+
+        <!-- ========== TELA DE GAME OVER ========== -->
+        <div id="game-over-screen" class="overlay hidden">
+            <div class="overlay-glitch-lines"></div>
+            <div class="overlay-content">
+                <h2 class="glitch-title small" data-text="CONEXÃO PERDIDA">CONEXÃO PERDIDA</h2>
+                <div class="results-panel">
+                    <div class="result-row">
+                        <span class="hud-label">SCORE FINAL</span>
+                        <span id="final-score-value" class="result-value">0</span>
+                    </div>
+                    <div class="result-row">
+                        <span class="hud-label">RECORDE</span>
+                        <span id="final-record-value" class="result-value record">0</span>
+                    </div>
+                    <div class="result-row">
+                        <span class="hud-label">DISTÂNCIA</span>
+                        <span id="final-dist-value" class="result-value">0m</span>
+                    </div>
+                    <div id="new-record-badge" class="hidden">★ NOVO RECORDE ★</div>
+                </div>
+                <div id="gameover-achievements" class="hidden">
+                    <span class="hud-label">CONQUISTAS DESBLOQUEADAS</span>
+                    <div id="gameover-ach-list"></div>
+                </div>
+                <button id="restart-btn" class="action-btn">↩ RECONECTAR</button>
+                <button id="menu-btn" class="action-btn secondary">⌂ MENU</button>
+            </div>
+        </div>
+
+        <!-- Notificação de Conquista -->
+        <div id="achievement-toast" class="hidden">
+            <span id="ach-icon">🏆</span>
+            <div>
+                <div id="ach-title">CONQUISTA!</div>
+                <div id="ach-name"></div>
+            </div>
+        </div>
+
+        <!-- Notificação de Power-up -->
+        <div id="powerup-toast" class="hidden"></div>
+
+        <!-- Canvas -->
+        <canvas id="gameCanvas"></canvas>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
