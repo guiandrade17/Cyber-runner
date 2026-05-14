@@ -1497,6 +1497,9 @@ const GAME = (() => {
 
   // --- Iniciar jogo ---
   function start() {
+
+    console.log('GAME START');
+
     if (STATE.running) return; // Proteção contra múltiplos starts
 
     // Resetar estado
@@ -1684,6 +1687,7 @@ function resizeCanvas() {
 function bindEvents() {
   // Iniciar
   DOM.startBtn.addEventListener('click', () => {
+    console.log('CLICOU START');
     GAME.start();
   });
 
