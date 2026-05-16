@@ -2,8 +2,6 @@
    CYBER RUNNER v2.0 — JAVASCRIPT COMPLETO
    Compatível com HTML e CSS fornecidos
    ============================================================ */
-console.log('JS CARREGOU');
-
 'use strict';
 
 /* ============================================================
@@ -1499,9 +1497,14 @@ const GAME = (() => {
   // --- Iniciar jogo ---
   function start() {
 
-    console.log('GAME START');
+    // Cancela qualquer loop anterior antes de reiniciar
+    if (STATE.rafId) {
+      cancelAnimationFrame(STATE.rafId);
+      STATE.rafId = null;
+    }
 
-    if (STATE.running) return; // Proteção contra múltiplos starts
+    // Resetar variável local de frames (estava acumulando entre partidas)
+    frameCount = 0;
 
     // Resetar estado
     STATE.running    = true;
@@ -1539,10 +1542,6 @@ const GAME = (() => {
 
     // Iniciar loop
     lastTimestamp = 0;
-    if (STATE.rafId) {
-      cancelAnimationFrame(STATE.rafId);
-      STATE.rafId = null;
-    }
     STATE.rafId = requestAnimationFrame(loop);
   }
 
@@ -1694,6 +1693,9 @@ function bindEvents() {
 
   // Reiniciar
   DOM.restartBtn.addEventListener('click', () => {
+    STATE.running  = false;   // garante que start() não seja bloqueado
+    STATE.gameOver = false;
+    STATE.paused   = false;
     UI.showScreen(null);
     GAME.start();
   });

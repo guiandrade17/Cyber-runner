@@ -21,13 +21,9 @@
 /* ── Reset ── */
 *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
 
-/* ──────────────────────────────────────────────────────────
-   [FIX 2] Classe utilitária global .hidden
-   O JS usa classList.add/remove('hidden') em elementos como
-   #combo-display, #powerup-display, #pause-btn, etc.
-   Sem esta regra, esses elementos NUNCA somem — o CSS só cobria
-   .overlay.hidden e alguns IDs específicos.
-   ────────────────────────────────────────────────────────── */
+/* ── Utilitário global — ESSENCIAL para o jogo funcionar ── */
+/* O JavaScript usa classList.add('hidden') em overlays, HUD items e botões.  */
+/* Sem esta regra nenhum elemento some ao receber a classe.                   */
 .hidden { display: none !important; }
 
 body {
@@ -356,7 +352,7 @@ canvas {
     backdrop-filter: blur(10px);
     overflow: hidden;
 }
-/* .overlay.hidden — já coberto pela regra global .hidden acima */
+.overlay.hidden { display: none; }
 
 .overlay-glitch-lines {
     position: absolute; inset: 0;
@@ -867,7 +863,7 @@ canvas {
     animation: badge-pulse 1s infinite;
     text-align: center;
 }
-/* #new-record-badge.hidden — coberto pela regra global .hidden */
+#new-record-badge.hidden { display: none; }
 
 /* ── Badges de conquista ── */
 .ach-badge {
@@ -911,7 +907,7 @@ canvas {
     box-shadow: 0 0 20px rgba(255,215,0,.3);
     max-width: 240px;
 }
-/* #achievement-toast.hidden — coberto pela regra global .hidden */
+#achievement-toast.hidden { display: none; }
 #achievement-toast.show { animation: toast-in .4s cubic-bezier(.19,1,.22,1) forwards; }
 #achievement-toast.hide { animation: toast-out .4s ease-in forwards; }
 
@@ -952,7 +948,7 @@ canvas {
     text-shadow: 0 0 10px var(--cyan);
     box-shadow: 0 0 20px rgba(0,242,255,.2);
 }
-/* #powerup-toast.hidden — coberto pela regra global .hidden */
+#powerup-toast.hidden { display: none; }
 #powerup-toast.show { animation: pu-bounce .4s cubic-bezier(.19,1,.22,1) forwards; }
 #powerup-toast.hide { animation: pu-out .35s ease-in forwards; }
 
@@ -967,7 +963,7 @@ canvas {
     max-width: 500px;
     width: 100%;
 }
-/* #gameover-achievements.hidden — coberto pela regra global .hidden */
+#gameover-achievements.hidden { display: none; }
 #gameover-ach-list {
     display: flex;
     gap: 8px;
