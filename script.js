@@ -2,6 +2,8 @@
    CYBER RUNNER v2.0 — JAVASCRIPT COMPLETO
    Compatível com HTML e CSS fornecidos
    ============================================================ */
+console.log('JS CARREGOU');
+
 'use strict';
 
 /* ============================================================
@@ -82,31 +84,6 @@ const CONFIG = {
     gold:  '#ffd700',
     green: '#00ff88',
   },
-
-  // ── Moedas ─────────────────────────────────────────────
-  COIN: {
-    RADIUS:        10,
-    SCORE_VALUE:   25,
-    SPAWN_CHANCE:  0.004,
-    MAGNET_RADIUS: 160,
-    MAGNET_SPEED:  12,
-    MAX_ON_SCREEN: 8,
-    PATTERNS: ['single','single','single','arc','line'],
-  },
-
-  // ── Música de tema ──────────────────────────────────────
-  MUSIC: {
-    BPM: 128,
-    CHORDS: [
-      [130.81, 155.56, 196.00],
-      [116.54, 138.59, 174.61],
-      [103.83, 123.47, 155.56],
-      [116.54, 138.59, 174.61],
-    ],
-    BASSLINE: [65.41, 58.27, 51.91, 58.27],
-    ARPEGGIO: [1, 1.25, 1.5, 2, 1.5, 1.25],
-    VOL_MASTER: 0.28,
-  },
 };
 
 /* ============================================================
@@ -139,10 +116,6 @@ const STATE = {
   // Flags
   muted:       false,
   newRecord:   false,
-
-  // Moedas
-  coins:       0,   // coletadas nesta run
-  totalCoins:  0,   // acumuladas (todas as runs) — salvo no localStorage
 
   // Record
   bestScore:   0,
@@ -225,10 +198,6 @@ function initDOM() {
 
   // Achievements panel menu
   DOM.achList    = document.getElementById('achievements-list');
-
-  // Moedas no HUD (criados dinamicamente se não existirem)
-  DOM.coinVal  = document.getElementById('coin-value');
-  DOM.coinDisp = document.getElementById('coin-display');
 }
 
 /* ============================================================
@@ -334,238 +303,10 @@ const AUDIO = (() => {
       playTone(523, 'sine', 0.08, 0.4);
       setTimeout(() => playTone(784, 'sine', 0.12, 0.4), 90);
     },
-    coinCollect() {
-      playTone(1200, 'sine', 0.07, 0.4, 900);
-      setTimeout(() => playTone(1600, 'sine', 0.06, 0.07, 1400), 60);
-    },
     setMuted(v)  {
       if (masterGain) masterGain.gain.value = v ? 0 : 0.35;
-      // Propaga mute para a música de tema
-      MUSIC.setMuted(v);
     },
   };
-})();
-
-/* ============================================================
-   SEÇÃO 4B — MÚSICA DE TEMA (Synthwave procedural)
-   ============================================================
-   Gerada 100% via Web Audio API em tempo real.
-   Estrutura:
-     · Bateria: kick + hihat + snare sintéticos
-     · Baixo: linha de baixo com portamento
-     · Harmonia: pad de três notas com filtro passa-baixa
-     · Melodia: arpejo com delay e reverb simples
-   O tempo e o tom sobem ligeiramente conforme STATE.speedMult
-   para reforçar a sensação de aceleração.
-   ============================================================ */
-const MUSIC = (() => {
-  let ac        = null;   // AudioContext compartilhado
-  let masterGain= null;   // ganho mestre da música
-  let playing   = false;
-  let scheduleId= null;   // setInterval do scheduler
-  let nextBeat  = 0;      // próximo instante agendado (AudioContext.currentTime)
-  let beatIndex = 0;      // posição no padrão rítmico
-  let chordIndex= 0;      // acorde atual
-
-  // ── Número de beats por compasso ──
-  const BEATS_PER_BAR   = 16;   // semicolcheias por compasso
-  const BEATS_PER_CHORD = 16;   // beats antes de mudar de acorde
-
-  // ── Cria um buffer de ruído branco curto ──
-  function makeNoise(ac, dur) {
-    const len  = Math.ceil(ac.sampleRate * dur);
-    const buf  = ac.createBuffer(1, len, ac.sampleRate);
-    const data = buf.getChannelData(0);
-    for (let i = 0; i < len; i++) data[i] = Math.random() * 2 - 1;
-    return buf;
-  }
-
-  // ── Kick sintético ──
-  function playKick(t) {
-    if (!ac || !masterGain) return;
-    try {
-      const osc  = ac.createOscillator();
-      const gain = ac.createGain();
-      osc.connect(gain); gain.connect(masterGain);
-      osc.frequency.setValueAtTime(160, t);
-      osc.frequency.exponentialRampToValueAtTime(40, t + 0.12);
-      gain.gain.setValueAtTime(0.9, t);
-      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.25);
-      osc.start(t); osc.stop(t + 0.25);
-    } catch (_) {}
-  }
-
-  // ── Hihat sintético (ruído filtrado) ──
-  function playHihat(t, open = false) {
-    if (!ac || !masterGain) return;
-    try {
-      const src  = ac.createBufferSource();
-      const filt = ac.createBiquadFilter();
-      const gain = ac.createGain();
-      src.buffer = makeNoise(ac, open ? 0.25 : 0.06);
-      filt.type            = 'highpass';
-      filt.frequency.value = 7000;
-      src.connect(filt); filt.connect(gain); gain.connect(masterGain);
-      gain.gain.setValueAtTime(open ? 0.25 : 0.14, t);
-      gain.gain.exponentialRampToValueAtTime(0.001, t + (open ? 0.22 : 0.05));
-      src.start(t);
-    } catch (_) {}
-  }
-
-  // ── Snare sintético ──
-  function playSnare(t) {
-    if (!ac || !masterGain) return;
-    try {
-      const src  = ac.createBufferSource();
-      const filt = ac.createBiquadFilter();
-      const gain = ac.createGain();
-      src.buffer = makeNoise(ac, 0.12);
-      filt.type            = 'bandpass';
-      filt.frequency.value = 1500;
-      filt.Q.value         = 0.8;
-      src.connect(filt); filt.connect(gain); gain.connect(masterGain);
-      gain.gain.setValueAtTime(0.5, t);
-      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.12);
-      src.start(t);
-    } catch (_) {}
-  }
-
-  // ── Nota de baixo com portamento ──
-  function playBass(freq, t, dur) {
-    if (!ac || !masterGain) return;
-    try {
-      const osc  = ac.createOscillator();
-      const gain = ac.createGain();
-      osc.type = 'sawtooth';
-      osc.connect(gain); gain.connect(masterGain);
-      osc.frequency.setValueAtTime(freq * 0.5, t);
-      osc.frequency.exponentialRampToValueAtTime(freq * 0.5 * 0.98, t + dur);
-      gain.gain.setValueAtTime(0.35, t);
-      gain.gain.setValueAtTime(0.32, t + dur - 0.02);
-      gain.gain.exponentialRampToValueAtTime(0.001, t + dur);
-      osc.start(t); osc.stop(t + dur + 0.01);
-    } catch (_) {}
-  }
-
-  // ── Pad harmônico (3 notas por acorde) ──
-  function playPad(freqs, t, dur) {
-    if (!ac || !masterGain) return;
-    freqs.forEach(freq => {
-      try {
-        const osc  = ac.createOscillator();
-        const filt = ac.createBiquadFilter();
-        const gain = ac.createGain();
-        osc.type = 'sawtooth';
-        filt.type            = 'lowpass';
-        filt.frequency.value = 900;
-        filt.Q.value         = 1.2;
-        osc.connect(filt); filt.connect(gain); gain.connect(masterGain);
-        osc.frequency.setValueAtTime(freq, t);
-        gain.gain.setValueAtTime(0.0, t);
-        gain.gain.linearRampToValueAtTime(0.07, t + 0.04);
-        gain.gain.setValueAtTime(0.06, t + dur - 0.06);
-        gain.gain.linearRampToValueAtTime(0.0, t + dur);
-        osc.start(t); osc.stop(t + dur + 0.01);
-      } catch (_) {}
-    });
-  }
-
-  // ── Nota de arpejo ──
-  function playArp(freq, t, dur) {
-    if (!ac || !masterGain) return;
-    try {
-      const osc  = ac.createOscillator();
-      const gain = ac.createGain();
-      osc.type = 'square';
-      osc.connect(gain); gain.connect(masterGain);
-      osc.frequency.setValueAtTime(freq, t);
-      gain.gain.setValueAtTime(0.0, t);
-      gain.gain.linearRampToValueAtTime(0.12, t + 0.01);
-      gain.gain.exponentialRampToValueAtTime(0.001, t + dur);
-      osc.start(t); osc.stop(t + dur + 0.01);
-    } catch (_) {}
-  }
-
-  // ── Scheduler: agenda os próximos beats com look-ahead de 0.15s ──
-  function schedule() {
-    if (!ac || !playing) return;
-
-    const LOOKAHEAD  = 0.15;  // segundos à frente para agendar
-    const cfg        = CONFIG.MUSIC;
-    // O BPM sobe levemente com a velocidade do jogo
-    const bpmNow     = cfg.BPM + STATE.speedMult * 8;
-    const beatDur    = (60 / bpmNow) / 4; // semicolcheia
-
-    while (nextBeat < ac.currentTime + LOOKAHEAD) {
-      const b    = beatIndex % BEATS_PER_BAR;
-      const ci   = Math.floor(beatIndex / BEATS_PER_CHORD) % cfg.CHORDS.length;
-      const chord= cfg.CHORDS[ci];
-      const bass = cfg.BASSLINE[ci];
-
-      // Bateria
-      if (b === 0 || b === 8)               playKick(nextBeat);
-      if (b === 4 || b === 12)              playSnare(nextBeat);
-      if (b % 2 === 0)                      playHihat(nextBeat, false);
-      if (b === 14)                         playHihat(nextBeat, true);
-
-      // Baixo — em cada tempo (a cada 4 semicolcheias)
-      if (b % 4 === 0)                      playBass(bass, nextBeat, beatDur * 3.8);
-
-      // Pad — começa no beat 0 de cada compasso, dura 1 compasso inteiro
-      if (b === 0)                          playPad(chord, nextBeat, beatDur * BEATS_PER_BAR);
-
-      // Arpejo — segue padrão circular sobre o acorde
-      const arpNote = chord[0] * cfg.ARPEGGIO[b % cfg.ARPEGGIO.length];
-      playArp(arpNote * 2, nextBeat, beatDur * 0.85);
-
-      nextBeat  += beatDur;
-      beatIndex ++;
-    }
-  }
-
-  // ── API pública ──
-
-  function start() {
-    if (playing) return;
-    try {
-      // Reutiliza o AudioContext do AUDIO (se possível) ou cria um novo
-      if (!ac) {
-        ac = new (window.AudioContext || window.webkitAudioContext)();
-        masterGain = ac.createGain();
-        masterGain.gain.value = STATE.muted ? 0 : CONFIG.MUSIC.VOL_MASTER;
-        masterGain.connect(ac.destination);
-      }
-      if (ac.state === 'suspended') ac.resume().catch(() => {});
-      playing   = true;
-      beatIndex = 0;
-      nextBeat  = ac.currentTime + 0.1;
-      // Agenda continuamente a cada 50ms
-      scheduleId = setInterval(schedule, 50);
-    } catch (_) {}
-  }
-
-  function stop() {
-    playing = false;
-    if (scheduleId) { clearInterval(scheduleId); scheduleId = null; }
-  }
-
-  function pause() { stop(); }
-
-  function resume() {
-    if (!playing) {
-      // Retoma sem resetar beatIndex para não recomeçar do zero
-      playing = true;
-      if (ac && ac.state === 'suspended') ac.resume().catch(() => {});
-      if (ac) nextBeat = ac.currentTime + 0.1;
-      scheduleId = setInterval(schedule, 50);
-    }
-  }
-
-  function setMuted(muted) {
-    if (masterGain) masterGain.gain.value = muted ? 0 : CONFIG.MUSIC.VOL_MASTER;
-  }
-
-  return { start, stop, pause, resume, setMuted };
 })();
 
 /* ============================================================
@@ -1218,178 +959,6 @@ const POWERUPS = (() => {
 })();
 
 /* ============================================================
-   SEÇÃO 9B — MOEDAS
-   ============================================================
-   · Spawn em 3 padrões: single, arc (semicírculo), line (fileira)
-   · Cada moeda vale CONFIG.COIN.SCORE_VALUE pontos
-   · O imã (power-up 'magnet') atrai moedas dentro de
-     CONFIG.COIN.MAGNET_RADIUS px em direção ao jogador
-   · Efeito visual: disco dourado com brilho + partículas ao coletar
-   ============================================================ */
-const COINS = (() => {
-  let pool = [];   // { x, y, radius, pulse, collected, vy }
-
-  // ── Spawn ──────────────────────────────────────────────
-  function spawnSingle(x) {
-    const ground = PHYSICS.getGroundY();
-    // Alterna entre chão, médio e alto
-    const yOptions = [ground - 30, ground - 90, ground - 150];
-    const y = yOptions[Math.floor(Math.random() * yOptions.length)];
-    pool.push({ x, y, radius: CONFIG.COIN.RADIUS, pulse: Math.random() * Math.PI * 2, collected: false, vy: 0 });
-  }
-
-  function spawnArc(x) {
-    const ground = PHYSICS.getGroundY();
-    const count  = 6;
-    const baseY  = ground - 50;
-    for (let i = 0; i < count; i++) {
-      const angle  = (Math.PI / (count - 1)) * i;      // semicírculo de 0 a π
-      const cx     = x + i * 32;
-      const cy     = baseY - Math.sin(angle) * 90;      // arco parabólico
-      pool.push({ x: cx, y: cy, radius: CONFIG.COIN.RADIUS, pulse: i * 0.4, collected: false, vy: 0 });
-    }
-  }
-
-  function spawnLine(x) {
-    const ground = PHYSICS.getGroundY();
-    const count  = 5;
-    const y      = ground - 55;
-    for (let i = 0; i < count; i++) {
-      pool.push({ x: x + i * 38, y, radius: CONFIG.COIN.RADIUS, pulse: i * 0.3, collected: false, vy: 0 });
-    }
-  }
-
-  // ── Atualização ────────────────────────────────────────
-  function update(dt) {
-    if (!STATE.running || STATE.paused) return;
-
-    // Tentativa de spawn (respeitando MAX_ON_SCREEN)
-    const active = pool.filter(c => !c.collected).length;
-    if (active < CONFIG.COIN.MAX_ON_SCREEN && Math.random() < CONFIG.COIN.SPAWN_CHANCE) {
-      const patterns = CONFIG.COIN.PATTERNS;
-      const pattern  = patterns[Math.floor(Math.random() * patterns.length)];
-      const spawnX   = CONFIG.BASE_WIDTH + 80;
-      if      (pattern === 'arc')  spawnArc(spawnX);
-      else if (pattern === 'line') spawnLine(spawnX);
-      else                         spawnSingle(spawnX);
-    }
-
-    const speed     = (CONFIG.OBSTACLE.BASE_SPEED + STATE.speedMult * 1.5)
-                    * CONFIG.DIFFICULTY[STATE.difficulty].speedMult;
-    const pState    = PLAYER.getState();
-    const px        = pState.x + CONFIG.PLAYER.WIDTH  / 2;
-    const py        = pState.y + CONFIG.PLAYER.HEIGHT / 2;
-    const magnetOn  = STATE.activePowerup === 'magnet';
-
-    for (let i = pool.length - 1; i >= 0; i--) {
-      const c = pool[i];
-      if (c.collected) { pool.splice(i, 1); continue; }
-
-      // Movimento horizontal (igual ao dos obstáculos)
-      c.x    -= speed * dt;
-      c.pulse += 0.08;
-
-      // Imã: atrai a moeda em direção ao jogador
-      if (magnetOn) {
-        const dx   = px - c.x;
-        const dy   = py - c.y;
-        const dist = Math.sqrt(dx * dx + dy * dy);
-        if (dist < CONFIG.COIN.MAGNET_RADIUS) {
-          const force = (1 - dist / CONFIG.COIN.MAGNET_RADIUS);   // 0…1
-          c.x  += (dx / dist) * CONFIG.COIN.MAGNET_SPEED * force * dt;
-          c.y  += (dy / dist) * CONFIG.COIN.MAGNET_SPEED * force * dt;
-        }
-      }
-
-      // Remove se saiu da tela pela esquerda
-      if (c.x + c.radius < -20) { pool.splice(i, 1); }
-    }
-  }
-
-  // ── Desenho ────────────────────────────────────────────
-  function draw(ctx) {
-    pool.forEach(c => {
-      if (c.collected) return;
-      const glow  = 8 + Math.sin(c.pulse) * 4;
-      const scale = 1 + Math.sin(c.pulse * 1.5) * 0.06;
-
-      ctx.save();
-      ctx.translate(c.x, c.y);
-      ctx.scale(scale, scale);
-
-      // Brilho externo
-      ctx.shadowBlur  = glow;
-      ctx.shadowColor = '#ffd700';
-
-      // Disco dourado
-      const grad = ctx.createRadialGradient(-3, -3, 1, 0, 0, c.radius);
-      grad.addColorStop(0,   '#fff9aa');
-      grad.addColorStop(0.4, '#ffd700');
-      grad.addColorStop(1,   '#b8860b');
-      ctx.fillStyle = grad;
-      ctx.beginPath();
-      ctx.arc(0, 0, c.radius, 0, Math.PI * 2);
-      ctx.fill();
-
-      // Símbolo ₿ (ou ◈)
-      ctx.shadowBlur  = 0;
-      ctx.fillStyle   = 'rgba(0,0,0,0.55)';
-      ctx.font        = `bold ${c.radius}px serif`;
-      ctx.textAlign   = 'center';
-      ctx.textBaseline= 'middle';
-      ctx.fillText('◈', 0, 1);
-
-      ctx.restore();
-    });
-  }
-
-  // ── Coleta ─────────────────────────────────────────────
-  function checkCollect(pHit) {
-    pool.forEach(c => {
-      if (c.collected) return;
-      const dx   = (pHit.x + pHit.w / 2) - c.x;
-      const dy   = (pHit.y + pHit.h / 2) - c.y;
-      const dist = Math.sqrt(dx * dx + dy * dy);
-      if (dist < pHit.w / 2 + c.radius) {
-        c.collected = true;
-        collectCoin(c);
-      }
-    });
-  }
-
-  function collectCoin(c) {
-    // Score
-    addScore(CONFIG.COIN.SCORE_VALUE);
-    STATE.coins++;
-    STATE.totalCoins++;
-    try { localStorage.setItem('cr_total_coins', String(STATE.totalCoins)); } catch (_) {}
-
-    // Atualizar HUD de moedas com animação de pop
-    if (DOM.coinVal) {
-      DOM.coinVal.textContent = STATE.coins;
-      DOM.coinVal.classList.remove('popped');
-      void DOM.coinVal.offsetWidth;  // reflow para reiniciar animação
-      DOM.coinVal.classList.add('popped');
-      setTimeout(() => DOM.coinVal.classList.remove('popped'), 200);
-    }
-
-    // Partículas douradas
-    PARTICLES.spawnBurst(c.x, c.y, 8, '#ffd700', 3);
-
-    // Som de coleta (nota curta e brilhante)
-    AUDIO.coinCollect();
-
-    // Conquistas
-    ACHIEVEMENTS.check('coin_collected', { total: STATE.coins });
-  }
-
-  function reset() { pool = []; }
-  function getPool() { return pool; }
-
-  return { update, draw, checkCollect, reset, getPool };
-})();
-
-/* ============================================================
    SEÇÃO 10 — FÍSICA / COLISÕES
    ============================================================ */
 const PHYSICS = (() => {
@@ -1543,17 +1112,12 @@ const UI = (() => {
   function updateHUD() {
     updateScore();
     updateSpeed();
-    // Moedas no HUD
-    if (DOM.coinVal)  DOM.coinVal.textContent  = STATE.coins;
   }
 
   function showGameOver() {
     DOM.finalScore.textContent = Math.floor(STATE.score);
     DOM.finalRecord.textContent = STATE.bestScore;
     DOM.finalDist.textContent  = `${Math.floor(STATE.distance)}m`;
-    // Moedas desta run
-    const coinEl = document.getElementById('final-coins-value');
-    if (coinEl) coinEl.textContent = `🪙 ${STATE.coins} moedas (total: ${STATE.totalCoins})`;
 
     if (STATE.newRecord) {
       DOM.newRecBadge.classList.remove('hidden');
@@ -1648,9 +1212,6 @@ const ACHIEVEMENTS = (() => {
     { id:'speed_3x',     name:'Velocidade 3x',        icon:'🌪', desc:'Atinja velocidade 3x',          unlocked:false, check:() => STATE.speedMult >= 2.0 },
     { id:'no_hit_500',   name:'Invicto',              icon:'🛡', desc:'Alcance 500 pontos sem ser atingido', unlocked:false, _maxScore:0, check:() => false }, // lógica especial
     { id:'distance_500', name:'Maratonista',          icon:'🏃', desc:'Percorra 500m',                 unlocked:false, check:() => STATE.distance >= 500 },
-    { id:'coin_10',      name:'Coletor',              icon:'🪙', desc:'Colete 10 moedas em uma run',      unlocked:false, check:() => STATE.coins >= 10 },
-    { id:'coin_50',      name:'Rico de Neon',         icon:'💰', desc:'Colete 50 moedas em uma run',      unlocked:false, check:() => STATE.coins >= 50 },
-    { id:'coin_total_100', name:'Milionário Cyber',   icon:'🏦', desc:'Colete 100 moedas no total',       unlocked:false, check:() => STATE.totalCoins >= 100 },
   ];
 
   let hitSinceStart = false;
@@ -1691,10 +1252,6 @@ const ACHIEVEMENTS = (() => {
         return;
       }
       if (ach.id === 'first_jump' && event === 'jump') { unlock(ach); return; }
-      if (['coin_10','coin_50','coin_total_100'].includes(ach.id) && event === 'coin_collected') {
-        if (ach.check()) unlock(ach);
-        return;
-      }
 
       // Checks gerais
       if (ach.check()) unlock(ach);
@@ -1959,7 +1516,6 @@ const GAME = (() => {
     STATE.activePowerup = null;
     STATE.powerupTimer  = 0;
     STATE.newRecord     = false;
-    STATE.coins         = 0;    // moedas desta run
 
     const diff = CONFIG.DIFFICULTY[STATE.difficulty];
     STATE.lives = diff.lives;
@@ -1968,7 +1524,6 @@ const GAME = (() => {
     PARTICLES.clear();
     OBSTACLES.reset();
     POWERUPS.reset();
-    COINS.reset();      // reinicia moedas
     PARALLAX.reset();
     PLAYER.reset();
     PHYSICS.recalcGround();
@@ -1981,9 +1536,6 @@ const GAME = (() => {
 
     DOM.comboDisp.classList.add('hidden');
     DOM.puDisp.classList.add('hidden');
-
-    // Iniciar música de tema
-    MUSIC.start();
 
     // Iniciar loop
     lastTimestamp = 0;
@@ -2002,13 +1554,11 @@ const GAME = (() => {
     if (STATE.paused) {
       DOM.pauseBtn.textContent = '▶';
       UI.showScreen('pause-screen');
-      MUSIC.pause();
       cancelAnimationFrame(STATE.rafId);
       STATE.rafId = null;
     } else {
       DOM.pauseBtn.textContent = '⏸';
       UI.showScreen(null);
-      MUSIC.resume();
       lastTimestamp = 0;
       STATE.rafId = requestAnimationFrame(loop);
     }
@@ -2018,7 +1568,6 @@ const GAME = (() => {
   function triggerGameOver() {
     STATE.running  = false;
     STATE.gameOver = true;
-    MUSIC.stop();   // para a música ao morrer
 
     // Salvar record
     const score = Math.floor(STATE.score);
@@ -2060,11 +1609,9 @@ const GAME = (() => {
     PLAYER.update(dt);
     OBSTACLES.update(dt);
     POWERUPS.update(dt);
-    COINS.update(dt);          // atualiza moedas
     PARALLAX.update(dt);
     PARTICLES.update();
     PHYSICS.checkCollisions();
-    COINS.checkCollect(PLAYER.getHitbox());  // verifica coleta de moedas
 
     // Score e distância
     if (STATE.running) {
@@ -2099,9 +1646,6 @@ const GAME = (() => {
 
     // Power-ups
     POWERUPS.draw(ctx);
-
-    // Moedas
-    COINS.draw(ctx);
 
     // Partículas (atrás do player)
     PARTICLES.draw(ctx);
@@ -2266,11 +1810,6 @@ function init() {
     const saved = parseInt(localStorage.getItem('cr_best') || '0', 10);
     STATE.bestScore = isNaN(saved) ? 0 : saved;
   } catch (e) { STATE.bestScore = 0; }
-
-  try {
-    const savedCoins = parseInt(localStorage.getItem('cr_total_coins') || '0', 10);
-    STATE.totalCoins = isNaN(savedCoins) ? 0 : savedCoins;
-  } catch (e) { STATE.totalCoins = 0; }
 
   ACHIEVEMENTS.load();
 
